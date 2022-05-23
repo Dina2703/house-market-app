@@ -1,5 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  updateProfile,
+} from "firebase/auth";
+import { setDoc, doc, serverTimestamp } from "firebase/firestore";
+import { db } from "../firebase.config";
 import { ReactComponent as ArrowRightIcon } from "../assets/svg/keyboardArrowRightIcon.svg";
 import visibilityIcon from "../assets/svg/visibilityIcon.svg";
 
@@ -15,11 +22,45 @@ function SignUp() {
 
   const navigate = useNavigate();
 
+  //[e.target.id]: e.target.value --- this is to dynamically update object property (when the name of the property is unknown upfront but runtime). This way you could have multiple React inputs having a different name property and using the same onChange handler to update part of the state.
   const onChange = (e) => {
     setFormData((prevState) => ({
       ...prevState,
       [e.target.id]: e.target.value,
     }));
+  };
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      const auth = getAuth();
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      console.log(userCredential);
+
+      const user = userCredential.user;
+
+      updateProfile(auth.currentUser, {
+        displayName: name,
+      });
+
+      //copy everything from 'formData' state
+      const formDataCopy = { ...formData };
+      //remove password info from the formDataCopy obj, before save it in the firestore database
+      delete formDataCopy.password;
+      //set timestamp property to formDataCopy obj with serverTimestamp()
+      formDataCopy.timestamp = serverTimestamp();
+      //to update the database and add our user to the user's collection.
+      await setDoc(doc(db, "users", user.uid), formDataCopy);
+
+      navigate("/");
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   return (
@@ -28,7 +69,7 @@ function SignUp() {
         <header>
           <p className="pageHeader">Welcome back</p>
         </header>
-        <form>
+        <form onSubmit={onSubmit}>
           <input
             type="text"
             className="nameInput"
